@@ -1,0 +1,16 @@
+httpssetuo365-my.sharepoint.comwgpersonalnoel_ohara_setu_ieEWkXsXWMkL1CoLBgGUzkpWcBhgv1T1id2WELEVjYoktK5ge=YzbXF4
+
+Gen AI Project 20%
+
+Deadline 6th November.
+
+Written Report 4pm 6th November
+
+Submit final code to blackboard.
+
+
+Create a teaching /visualization tool in raylib ( raygui optional) for arrays , LinkedList's and Binary Search Trees. The tool should how the algorithms work, in way that the user will understand how the algorithm performs its task.
+
+The project should take 10 hours. Document your interaction with AI by uploading 5 to 7 word docs as you work to upload .
+
+On 6th November there will be a written exam where you recount your interactions with AI, and answer some general questions about the process.
