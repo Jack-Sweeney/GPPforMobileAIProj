@@ -14,3 +14,7 @@ Create a teaching /visualization tool in raylib ( raygui optional) for arrays , 
 The project should take 10 hours. Document your interaction with AI by uploading 5 to 7 word docs as you work to upload .
 
 On 6th November there will be a written exam where you recount your interactions with AI, and answer some general questions about the process.
+
+   BeginDrawing();
+ Color c =  { 20, 20, 30, 255 };
+ ClearBackground(c);
