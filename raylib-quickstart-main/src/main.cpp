@@ -2,6 +2,9 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <vector>
+
+
 
 // ------------------------------------------------------
 // Utility and Structures
@@ -13,6 +16,9 @@ struct Node {
     float x, y;
 };
 
+int listStepIndex = -1;
+std::vector<Node*> listTraversalOrder;
+
 struct BSTNode {
     int value;
     BSTNode* left;
@@ -21,10 +27,12 @@ struct BSTNode {
     float targetX, targetY;
     bool visited = false;
 };
+std::vector<BSTNode*> bstTraversalOrder;
+int bstTraversalIndex = -1;
 
 struct ArrayData {
-    int values[20];
-    int size = 10;
+    int values[10];   // Fixed-size array of 10
+    int size = 0;     // Number of filled elements
     int currentIndex = -1;
 };
 
@@ -58,15 +66,28 @@ void RemoveLast(Node** head) {
 }
 
 void DrawLinkedList(Node* head, int screenWidth, int screenHeight) {
-    Node* current = head;
-    float targetX = 150;
     const int NODE_WIDTH = 100, NODE_HEIGHT = 50, NODE_SPACING = 150;
+    const int MAX_NODES_PER_ROW = 7;
+    const float START_X = 150;
+    const float START_Y = 400;
+    const float ROW_HEIGHT = NODE_HEIGHT + 100;
+
+    int index = 0;
+    Node* current = head;
     while (current) {
+        int row = index / MAX_NODES_PER_ROW;
+        int col = index % MAX_NODES_PER_ROW;
+
+        float targetX = START_X + col * NODE_SPACING;
+        float targetY = START_Y + row * ROW_HEIGHT;
+
         current->x = Lerp(current->x, targetX, GetFrameTime() * 5);
-        current->y = Lerp(current->y, 400, GetFrameTime() * 5);
+        current->y = Lerp(current->y, targetY, GetFrameTime() * 5);
+
+        Color fillColor = (listStepIndex >= 0 && listStepIndex == index) ? DARKGREEN : DARKBLUE;
 
         Rectangle rect = { current->x, current->y, (float)NODE_WIDTH, (float)NODE_HEIGHT };
-        DrawRectangleRounded(rect, 0.25f, 8, BLUE);
+        DrawRectangleRounded(rect, 0.25f, 8, fillColor);
         DrawRectangleRoundedLines(rect, 0.25f, 8, WHITE);
 
         char buf[8];
@@ -75,20 +96,39 @@ void DrawLinkedList(Node* head, int screenWidth, int screenHeight) {
 
         if (current->next) {
             float startX = current->x + NODE_WIDTH;
-            float endX = current->x + NODE_SPACING - 30;
-            float y = current->y + NODE_HEIGHT / 2;
-            DrawLineEx({ startX, y }, { endX, y }, 2, WHITE);
-            DrawTriangle({ endX, y }, { endX - 10, y - 5 }, { endX - 10, y + 5 }, WHITE);
+            float endX = (col == MAX_NODES_PER_ROW - 1) ? START_X : current->x + NODE_SPACING - 30;
+            float startY = current->y + NODE_HEIGHT / 2;
+            float endY = (col == MAX_NODES_PER_ROW - 1) ? current->y + ROW_HEIGHT - 50 : startY;
+
+            DrawLineEx({ startX, startY }, { endX, endY }, 2, WHITE);
+            DrawTriangle({ endX, endY }, { endX - 10, endY - 5 }, { endX - 10, endY + 5 }, WHITE);
         }
 
-        targetX += NODE_SPACING;
-        if (targetX + NODE_WIDTH > screenWidth - 250) { // wrap row
-            targetX = 150;
-            current->y += NODE_HEIGHT + 100;
-        }
         current = current->next;
+        index++;
     }
 }
+
+void ResetListTraversal(Node* head) {
+    listTraversalOrder.clear();
+    listStepIndex = -1;
+    Node* curr = head;
+    while (curr) {
+        listTraversalOrder.push_back(curr);
+        curr = curr->next;
+    }
+}
+
+void StepListTraversal(Node* head) {
+    if (listTraversalOrder.empty()) ResetListTraversal(head);
+    if (listTraversalOrder.empty()) return;
+
+    if (listStepIndex + 1 < (int)listTraversalOrder.size())
+        listStepIndex++;
+    else
+        listStepIndex = -1; // Finished, reset highlight
+}
+
 
 // ------------------------------------------------------
 // BST Functions
@@ -124,6 +164,22 @@ void DrawBST(BSTNode* root, int screenWidth, int screenHeight) {
     DrawBST(root->right, screenWidth, screenHeight);
 }
 
+void CollectInOrder(BSTNode* node, std::vector<BSTNode*>& order) {
+    if (!node) return;
+    CollectInOrder(node->left, order);
+    order.push_back(node);
+    CollectInOrder(node->right, order);
+}
+
+void ResetBSTTraversal(BSTNode* root) {
+    bstTraversalOrder.clear();
+    bstTraversalIndex = -1;
+    if (root) CollectInOrder(root, bstTraversalOrder);
+    // Clear visited flags
+    for (auto n : bstTraversalOrder) n->visited = false;
+}
+
+
 // ------------------------------------------------------
 // Array Visualization
 // ------------------------------------------------------
@@ -131,17 +187,25 @@ void DrawBST(BSTNode* root, int screenWidth, int screenHeight) {
 void DrawArray(ArrayData* arr, int screenWidth, int screenHeight) {
     const int boxW = 60;
     const int startX = 150;
-    for (int i = 0; i < arr->size; i++) {
+    const int y = 400;
+
+    for (int i = 0; i < 10; i++) {
         int x = startX + i * (boxW + 10);
-        int y = 400;
-        Color c = (i == arr->currentIndex) ? DARKGREEN : DARKBLUE;
+        bool filled = i < arr->size;
+        Color c = (i == arr->currentIndex) ? DARKGREEN : (filled ? DARKBLUE : DARKGRAY);
+
         DrawRectangleRounded({ (float)x, (float)y, (float)boxW, 60 }, 0.25f, 8, c);
         DrawRectangleRoundedLines({ (float)x, (float)y, (float)boxW, 60 }, 0.25f, 8, WHITE);
+
         char buf[8];
-        sprintf(buf, "%d", arr->values[i]);
-        DrawText(buf, x + 20, y + 20, 20, WHITE);
+        if (filled)
+            sprintf(buf, "%d", arr->values[i]);
+        else
+            sprintf(buf, "-");
+        DrawText(buf, x + 22, y + 20, 20, WHITE);
     }
 }
+
 
 // ------------------------------------------------------
 // UI Helper
@@ -198,70 +262,107 @@ int main() {
             pseudocode = "add(value): arr[size++] = value;\nremove(): size--;\nfor i=0..size-1: process(arr[i]);";
         }
 
-        // Mode specific controls
         if (isLinkedListMode) {
             if (DrawButton({ 100, 160, 180, 40 }, "Add Head", DARKGREEN, GREEN)) {
                 AddBeforeHead(&listHead, nextValue++);
                 explanation = "Add Head: Created a new node and linked before current head.";
+                ResetListTraversal(listHead);
             }
             if (DrawButton({ 300, 160, 180, 40 }, "Add Tail", DARKBLUE, BLUE)) {
                 AddLast(&listHead, nextValue++);
                 explanation = "Add Tail: Traversed to the end and added a node.";
+                ResetListTraversal(listHead);
             }
             if (DrawButton({ 500, 160, 180, 40 }, "Remove Tail", RED, MAROON)) {
                 RemoveLast(&listHead);
                 explanation = "Remove Tail: Traversed and removed last node.";
+                ResetListTraversal(listHead);
             }
-            if (DrawButton({ 700, 160, 180, 40 }, "Reset", GRAY, DARKGRAY)) {
+            if (DrawButton({ 700, 160, 180, 40 }, "Step", DARKBLUE, BLUE)) {
+                StepListTraversal(listHead);
+                explanation = "Step: Moved to next node in the linked list.";
+            }
+            if (DrawButton({ 700, 260, 180, 40 }, "Reset", GRAY, DARKGRAY)) {
                 while (listHead) { RemoveLast(&listHead); }
                 nextValue = 1;
                 explanation = "Reset: Cleared linked list.";
+                ResetListTraversal(listHead);
             }
+
             DrawLinkedList(listHead, GetScreenWidth(), GetScreenHeight());
         }
+
         else if (isBSTMode) {
             if (DrawButton({ 100, 160, 180, 40 }, "Insert Node", DARKBLUE, BLUE)) {
                 bstRoot = BSTInsert(bstRoot, GetRandomValue(1, 99), 640, 250);
                 explanation = "Insert Node: Inserted value recursively based on BST rules.";
+                ResetBSTTraversal(bstRoot);  // refresh traversal order after insertion
             }
             if (DrawButton({ 300, 160, 180, 40 }, "Step", DARKGREEN, GREEN)) {
-                explanation = "Step: Performing one step of in-order traversal.";
+                if (bstTraversalOrder.empty() && bstRoot) {
+                    CollectInOrder(bstRoot, bstTraversalOrder);
+                }
+                if (!bstTraversalOrder.empty()) {
+                    // Advance traversal index
+                    if (bstTraversalIndex + 1 < (int)bstTraversalOrder.size()) {
+                        bstTraversalIndex++;
+                        bstTraversalOrder[bstTraversalIndex]->visited = true;
+                        explanation = "Step: Visited node in in-order traversal.";
+                    }
+                    else {
+                        explanation = "Traversal complete: All nodes visited.";
+                    }
+                }
+                else {
+                    explanation = "Tree empty: No nodes to traverse.";
+                }
             }
             if (DrawButton({ 500, 160, 180, 40 }, "Reset", GRAY, DARKGRAY)) {
                 bstRoot = nullptr;
+                bstTraversalOrder.clear();
+                bstTraversalIndex = -1;
                 explanation = "Reset: Cleared BST.";
             }
+
             DrawBST(bstRoot, GetScreenWidth(), GetScreenHeight());
         }
+
         else if (isArrayMode) {
             if (DrawButton({ 100, 160, 180, 40 }, "Add Element", DARKGREEN, GREEN)) {
-                if (arr.size < 20) {
+                if (arr.size < 10) {
                     arr.values[arr.size++] = GetRandomValue(1, 99);
-                    explanation = "Add Element: Appended value to array.";
+                    explanation = "Add Element: Added a new value into the next empty array slot.";
                 }
-                else explanation = "Array full: Cannot add more elements.";
+                else {
+                    explanation = "Array full: All 10 positions are filled.";
+                }
             }
             if (DrawButton({ 300, 160, 180, 40 }, "Remove Element", RED, MAROON)) {
                 if (arr.size > 0) {
                     arr.size--;
                     if (arr.currentIndex >= arr.size) arr.currentIndex = arr.size - 1;
-                    explanation = "Remove Element: Removed last array element.";
+                    explanation = "Remove Element: Cleared the last filled slot.";
                 }
-                else explanation = "Array empty: Nothing to remove.";
+                else {
+                    explanation = "Array empty: No elements to remove.";
+                }
             }
             if (DrawButton({ 500, 160, 180, 40 }, "Step", DARKBLUE, BLUE)) {
                 if (arr.size > 0)
                     arr.currentIndex = (arr.currentIndex + 1) % arr.size;
-                explanation = "Step: Highlighted next array element.";
+                else
+                    arr.currentIndex = -1;
+                explanation = "Step: Highlighted next filled array element.";
             }
             if (DrawButton({ 700, 160, 180, 40 }, "Reset", GRAY, DARKGRAY)) {
-                arr.size = 10;
-                for (int i = 0; i < arr.size; i++) arr.values[i] = GetRandomValue(1, 99);
+                arr.size = 0;
                 arr.currentIndex = -1;
-                explanation = "Reset: New random array values generated.";
+                explanation = "Reset: Cleared all array values.";
             }
+
             DrawArray(&arr, GetScreenWidth(), GetScreenHeight());
         }
+
 
         // Explanation areas
         DrawRectangleRounded({ 100, 700, 1080, 70 }, 0.1f, 8, DARKGRAY);
